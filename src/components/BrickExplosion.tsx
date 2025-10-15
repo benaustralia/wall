@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { createCharacters } from './Characters';
 
 interface BrickData {
   mesh: THREE.Mesh;
@@ -308,27 +309,30 @@ export default function BrickExplosion() {
     handle.rotation.z = Math.PI / 2;
     plunger.add(handle);
     
-    // Position detonator near viewer
+    // Position detonator outside the city walls (safe distance)
     detonatorBox.position.set(8, detonatorSize * 0.3, 8);
     detonatorBox.castShadow = true;
     detonatorBox.receiveShadow = true;
     detonatorRef.current = detonatorBox;
     scene.add(detonatorBox);
 
-    // Wire connecting TNT to detonator (running along ground around tower)
+    // Wire connecting TNT to detonator (long wire to reach outside detonator position)
     const wirePoints = [
       new THREE.Vector3(leftWallCenter + tntSize/2, 0.1, 2), // Start at right side of TNT, at ground level
       new THREE.Vector3(leftWallCenter + tntSize/2 + 1, 0.1, 2), // Move away from TNT
       new THREE.Vector3(-6, 0.1, 4), // Go around back of tower
-      new THREE.Vector3(6, 0.1, 8), // Come around front
-      new THREE.Vector3(8, 0.1, 8), // Along ground to detonator area
-      new THREE.Vector3(8, detonatorSize * 0.3, 8) // End at detonator
+      new THREE.Vector3(6, 0.1, 8), // Go around front to outside
+      new THREE.Vector3(8, 0.1, 8), // Along ground to outside detonator area
+      new THREE.Vector3(8, detonatorSize * 0.3, 8) // End at outside detonator position
     ];
     
     const wireGeometry = new THREE.BufferGeometry().setFromPoints(wirePoints);
     const wireMaterial = new THREE.LineBasicMaterial({ color: 0x666666, linewidth: 2 });
     const wire = new THREE.Line(wireGeometry, wireMaterial);
     scene.add(wire);
+    
+    // Create the three characters based on visual references
+    createCharacters({ scene });
     
     // Build right wall (no doors) - skip center section hidden by tower
     for (let row = 0; row < wallRows; row++) {
@@ -538,19 +542,21 @@ export default function BrickExplosion() {
 
     bricksRef.current = brickData;
 
-    const GRAVITY = 9.81;
+    const GRAVITY = 6.0; // Reduced gravity for smoother, slower settling
 
-    // Initialize explosion
+    // Initialize explosion - layered upward movement
     const initializeExplosion = () => {
       brickData.forEach((data, idx) => {
-        const velocityVariation = 0.4 + Math.sin(idx * 12.9898) * 0.25;
-        data.velocity.set(0, 2.2 + velocityVariation, 0);
+        // Calculate height-based velocity - higher bricks get more upward velocity
+        const heightFactor = (data.initialPos.y / 16) * 2; // Scale based on initial height
+        const velocityVariation = 0.3 + Math.sin(idx * 12.9898) * 0.2; // Add variation for spacing
+        const baseVelocity = 1.5 + heightFactor + velocityVariation; // Base velocity increases with height
         
-        const spreadX = (Math.sin(idx * 12.9898) * 0.43358) * 0.3;
-        const spreadZ = (Math.sin(idx * 78.233) * 0.43358) * 0.3;
-        data.velocity.x = spreadX;
-        data.velocity.z = spreadZ;
+        // Moderate horizontal spread for better brick separation
+        const spreadX = (Math.sin(idx * 12.9898) * 0.43358) * 0.4;
+        const spreadZ = (Math.sin(idx * 78.233) * 0.43358) * 0.4;
         
+        data.velocity.set(spreadX, baseVelocity, spreadZ);
         data.angularVelocity.set(0, 0, 0);
         data.active = true;
       });
@@ -579,9 +585,9 @@ export default function BrickExplosion() {
         // Ground collision with damping
         if (data.position.y <= data.initialPos.y) {
           data.position.y = data.initialPos.y;
-          data.velocity.y *= -0.2; // Reduced bounce for faster settling
-          data.velocity.x *= 0.7; // Increased horizontal damping
-          data.velocity.z *= 0.7;
+          data.velocity.y *= -0.1; // Very gentle bounce for smooth settling
+          data.velocity.x *= 0.85; // Less aggressive horizontal damping
+          data.velocity.z *= 0.85;
           
           // Stop very slow bricks more aggressively during settling phase
           if (Math.abs(data.velocity.y) < 0.1 && 
