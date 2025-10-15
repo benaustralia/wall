@@ -13,8 +13,9 @@ export default function BrickExplosion() {
   const startTimeRef = useRef<number | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const isMouseDownRef = useRef(false);
+  const isResettingRef = useRef(false);
   const mousePositionRef = useRef({ x: 0, y: 0 });
-  const cameraAngleRef = useRef({ azimuth: 0, elevation: Math.PI / 6 });
+  const cameraAngleRef = useRef({ azimuth: Math.PI / 2, elevation: Math.asin(4 / 20) });
   const resetCameraRef = useRef<(() => void) | null>(null);
   const detonatorRef = useRef<THREE.Mesh | null>(null);
   const triggerExplosionRef = useRef<(() => void) | null>(null);
@@ -92,7 +93,7 @@ export default function BrickExplosion() {
     };
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (!isMouseDownRef.current) return;
+      if (!isMouseDownRef.current || isResettingRef.current) return;
       
       const deltaX = event.clientX - mousePositionRef.current.x;
       const deltaY = event.clientY - mousePositionRef.current.y;
@@ -110,23 +111,52 @@ export default function BrickExplosion() {
       isMouseDownRef.current = false;
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      if (!cameraRef.current) return;
+      
+      event.preventDefault();
+      
+      const delta = event.deltaY * 0.01;
+      const camera = cameraRef.current;
+      
+      // Move camera forward/backward based on wheel direction
+      const direction = new THREE.Vector3();
+      camera.getWorldDirection(direction);
+      
+      camera.position.addScaledVector(direction, delta);
+      
+      // Update the angle refs to match the new position
+      const radius = camera.position.length();
+      const centerY = 6;
+      
+      cameraAngleRef.current.elevation = Math.asin((camera.position.y - centerY) / radius);
+      cameraAngleRef.current.azimuth = Math.atan2(camera.position.z, camera.position.x);
+    };
+
     const resetCamera = () => {
       if (!cameraRef.current) return;
+      
+      isResettingRef.current = true;
       
       // Reset to initial camera position (same as first paint)
       const camera = cameraRef.current;
       camera.position.set(0, 10, 20);
       camera.lookAt(0, 6, 0);
       
-      // Reset the angle refs to match the initial position
-      cameraAngleRef.current = { azimuth: 0, elevation: Math.PI / 6 };
+      // Reset the angle refs to match the initial position  
+      cameraAngleRef.current = { azimuth: Math.PI / 2, elevation: Math.asin(4 / 20) };
+      
+      // Clear the resetting flag after a brief delay
+      setTimeout(() => {
+        isResettingRef.current = false;
+      }, 100);
     };
 
     const triggerExplosion = () => {
       playExplosionSound();
       
       // Always restart the animation when button is clicked
-      startTimeRef.current = Date.now();
+        startTimeRef.current = Date.now();
     };
 
     resetCameraRef.current = resetCamera;
@@ -136,6 +166,7 @@ export default function BrickExplosion() {
     containerRef.current.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    containerRef.current.addEventListener('wheel', handleWheel);
 
     let lastTime = Date.now();
     const animate = () => {
@@ -143,7 +174,7 @@ export default function BrickExplosion() {
       const now = Date.now();
       const deltaTime = (now - lastTime) / 1000;
       lastTime = now;
-
+      
       if (!startTimeRef.current) {
         brickData.forEach((data) => {
           data.active = false;
@@ -153,7 +184,7 @@ export default function BrickExplosion() {
         renderer.render(scene, camera);
         return;
       }
-
+      
       const elapsed = (Date.now() - startTimeRef.current) / 1000;
 
       if (elapsed < 2) {
@@ -214,7 +245,7 @@ export default function BrickExplosion() {
       <button
         onClick={() => resetCameraRef.current?.()}
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: '20px',
           right: '150px',
           padding: '10px 20px',
@@ -227,7 +258,7 @@ export default function BrickExplosion() {
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: 'bold',
-          zIndex: 1000,
+          zIndex: 10000,
           boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
         }}
         onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2d3748'}
@@ -238,7 +269,7 @@ export default function BrickExplosion() {
       <button
         onClick={() => triggerExplosionRef.current?.()}
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: '20px',
           right: '20px',
           padding: '10px 20px',
@@ -251,7 +282,7 @@ export default function BrickExplosion() {
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: 'bold',
-          zIndex: 1000,
+          zIndex: 10000,
           boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
         }}
         onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d32f2f'}
