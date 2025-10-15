@@ -1,17 +1,9 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { createCharacters } from './Characters';
-
-interface BrickData {
-  mesh: THREE.Mesh;
-  initialPos: THREE.Vector3;
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
-  angularVelocity: THREE.Vector3;
-  rotation: THREE.Euler;
-  mass: number;
-  active: boolean;
-}
+import { BrickData } from './explosion/types';
+import { playExplosionSound } from './explosion/soundEngine';
+import { initializeExplosion, simulatePhysics } from './explosion/physicsEngine';
 
 export default function BrickExplosion() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -616,82 +608,6 @@ export default function BrickExplosion() {
 
     bricksRef.current = brickData;
 
-    const GRAVITY = 6.0; // Reduced gravity for smoother, slower settling
-
-    // Initialize explosion - layered upward movement
-    const initializeExplosion = () => {
-      brickData.forEach((data, idx) => {
-        // Calculate height-based velocity - higher bricks get more upward velocity
-        const heightFactor = (data.initialPos.y / 16) * 2; // Scale based on initial height
-        const velocityVariation = 0.3 + Math.sin(idx * 12.9898) * 0.2; // Add variation for spacing
-        const baseVelocity = 1.5 + heightFactor + velocityVariation; // Base velocity increases with height
-        
-        // Moderate horizontal spread for better brick separation
-        const spreadX = (Math.sin(idx * 12.9898) * 0.43358) * 0.4;
-        const spreadZ = (Math.sin(idx * 78.233) * 0.43358) * 0.4;
-        
-        data.velocity.set(spreadX, baseVelocity, spreadZ);
-        data.angularVelocity.set(0, 0, 0);
-        data.active = true;
-      });
-    };
-
-    // Physics simulation - optimized for smooth rendering
-    const simulatePhysics = (deltaTime: number) => {
-      const dt = Math.min(deltaTime, 0.016); // Cap at 60fps for stability
-      const velocityScale = dt;
-      const gravityForce = GRAVITY * dt;
-      let activeBricks = 0;
-
-      brickData.forEach((data) => {
-        if (!data.active) return;
-        
-        activeBricks++;
-
-        // Apply gravity
-        data.velocity.y -= gravityForce;
-        
-        // Update position with cached velocity scale
-        data.position.x += data.velocity.x * velocityScale;
-        data.position.y += data.velocity.y * velocityScale;
-        data.position.z += data.velocity.z * velocityScale;
-
-        // Ground collision with damping
-        if (data.position.y <= data.initialPos.y) {
-          data.position.y = data.initialPos.y;
-          data.velocity.y *= -0.1; // Very gentle bounce for smooth settling
-          data.velocity.x *= 0.85; // Less aggressive horizontal damping
-          data.velocity.z *= 0.85;
-          
-          // Stop very slow bricks more aggressively during settling phase
-          if (Math.abs(data.velocity.y) < 0.1 && 
-              Math.abs(data.velocity.x) < 0.1 && 
-              Math.abs(data.velocity.z) < 0.1) {
-            data.position.copy(data.initialPos);
-            data.velocity.set(0, 0, 0);
-            data.active = false;
-            return;
-          }
-        }
-
-        // Update rotation
-        data.rotation.x += data.angularVelocity.x * dt;
-        data.rotation.y += data.angularVelocity.y * dt;
-        data.rotation.z += data.angularVelocity.z * dt;
-
-        // Apply damping
-        data.angularVelocity.multiplyScalar(0.95); // Increased damping
-
-        // Update mesh transforms
-        data.mesh.position.copy(data.position);
-        data.mesh.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
-      });
-      
-      // Early exit if no active bricks
-      if (activeBricks === 0) {
-        return;
-      }
-    };
 
     // Mouse controls for camera rotation
     const updateCamera = () => {
@@ -746,46 +662,7 @@ export default function BrickExplosion() {
       cameraAngleRef.current = { azimuth: 0, elevation: Math.PI / 6 };
     };
 
-    // Create explosion sound
-    const playExplosionSound = () => {
-      try {
-        // Create a simple explosion sound using Web Audio API
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        
-        // Create noise for explosion sound
-        const bufferSize = audioContext.sampleRate * 1; // 1 second
-        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-        const output = buffer.getChannelData(0);
-        
-        for (let i = 0; i < bufferSize; i++) {
-          output[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
-        }
-        
-        const whiteNoise = audioContext.createBufferSource();
-        whiteNoise.buffer = buffer;
-        
-        const filter = audioContext.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(800, audioContext.currentTime);
-        filter.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 1);
-        
-        const gainNode = audioContext.createGain();
-        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
-        
-        whiteNoise.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        whiteNoise.start();
-        whiteNoise.stop(audioContext.currentTime + 1);
-      } catch (error) {
-        console.log('Audio not available:', error);
-      }
-    };
-
     const triggerExplosion = () => {
-      // Play explosion sound
       playExplosionSound();
       
       // Always restart the animation when button is clicked
@@ -830,11 +707,11 @@ export default function BrickExplosion() {
         });
       } else if (elapsed < 6) {
         if (elapsed < 2.1) {
-          initializeExplosion();
+          initializeExplosion(brickData);
         }
-        simulatePhysics(deltaTime);
+        simulatePhysics(brickData, deltaTime);
       } else if (elapsed < 8) {
-        simulatePhysics(deltaTime);
+        simulatePhysics(brickData, deltaTime);
         
         // Check if all bricks are settled - end animation early
         const activeBricks = brickData.filter(d => d.active).length;
