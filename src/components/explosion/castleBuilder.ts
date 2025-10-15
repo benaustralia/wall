@@ -38,9 +38,9 @@ export function buildCastle(scene: THREE.Scene): CastleElements {
   const sideLength = 2 * towerRadius * Math.sin(Math.PI / 8);
   const bricksPerSide = Math.ceil(sideLength / (brickWidth * 0.8));
   
-  const doorwayHeight = 2.5;
-  const doorwayWidth = 1.5;
-  const doorwayRows = Math.ceil(doorwayHeight / brickHeight);
+  const doorwayWidth = 3 * brickWidth * 0.8; // 3 columns wide (center + left + right)
+  const doorwayRows = 6; // 6 rows high (rows 3-8 from top)
+  const doorwayStartRow = baseBrickRows - 8; // 8 rows from the top
   
   const windowHeight = 2.0;
   const windowWidth = 1.2;
@@ -64,28 +64,35 @@ export function buildCastle(scene: THREE.Scene): CastleElements {
 
         let skipBrick = false;
         
-        // Doorway
-        if (row < doorwayRows) {
+        // Bottom doorway - first 13 rows from bottom, 3 columns wide
+        if (row < 13) {
           if (Math.abs(x) < doorwayWidth / 2 && z > 0) {
             skipBrick = true;
           }
         }
         
-        // Arched windows
-        if (row >= level2StartRow && row < level2EndRow) {
-          if (Math.abs(x) < windowWidth / 2 && z > 0) {
-            const archRadius = windowWidth / 2;
-            const archCenter = level2StartRow + windowRows * 0.8;
-            
-            if (row < archCenter) {
-              skipBrick = true;
-            } else {
-              const archHeight = row - archCenter;
-              const archWidth = Math.sqrt(Math.max(0, archRadius * archRadius - archHeight * archHeight));
-              if (Math.abs(x) < archWidth) {
-                skipBrick = true;
-              }
-            }
+        // Top doorway - 6-11 rows from top, 3 columns wide
+        if (row >= doorwayStartRow && row < doorwayStartRow + doorwayRows) {
+          if (Math.abs(x) < doorwayWidth / 2 && z > 0) {
+            skipBrick = true;
+          }
+        }
+        
+        // Second doorway - 13-18 rows from top, 3 columns wide
+        const secondDoorwayStartRow = baseBrickRows - 18;
+        const secondDoorwayRows = 6;
+        if (row >= secondDoorwayStartRow && row < secondDoorwayStartRow + secondDoorwayRows) {
+          if (Math.abs(x) < doorwayWidth / 2 && z > 0) {
+            skipBrick = true;
+          }
+        }
+        
+        // Third doorway - 23-28 rows from top, 3 columns wide
+        const middleDoorwayStartRow = baseBrickRows - 28;
+        const middleDoorwayRows = 6;
+        if (row >= middleDoorwayStartRow && row < middleDoorwayStartRow + middleDoorwayRows) {
+          if (Math.abs(x) < doorwayWidth / 2 && z > 0) {
+            skipBrick = true;
           }
         }
         
