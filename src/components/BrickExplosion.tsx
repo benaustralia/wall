@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { createCharacters } from './Characters';
 import { BrickData } from './explosion/types';
 import { playExplosionSound } from './explosion/soundEngine';
 import { initializeExplosion, simulatePhysics } from './explosion/physicsEngine';
 import { buildCastle } from './explosion/castleBuilder';
+import { Button } from '@/components/ui/button';
 
 export default function BrickExplosion() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -19,6 +20,7 @@ export default function BrickExplosion() {
   const resetCameraRef = useRef<(() => void) | null>(null);
   const detonatorRef = useRef<THREE.Mesh | null>(null);
   const triggerExplosionRef = useRef<(() => void) | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -239,57 +241,60 @@ export default function BrickExplosion() {
     };
   }, []);
 
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (err) {
+        console.error('Error attempting to enable fullscreen:', err);
+      }
+    } else {
+      try {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      } catch (err) {
+        console.error('Error attempting to exit fullscreen:', err);
+      }
+    }
+  };
+
+  // Listen for fullscreen changes (including ESC key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', margin: 0, padding: 0 }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      <button
-        onClick={() => resetCameraRef.current?.()}
-        style={{
-          position: 'fixed',
-          top: '20px',
-          right: '150px',
-          padding: '10px 20px',
-          width: '120px',
-          height: '44px',
-          backgroundColor: '#4a5568',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: 'bold',
-          zIndex: 10000,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2d3748'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4a5568'}
-      >
-        Reset View
-      </button>
-      <button
-        onClick={() => triggerExplosionRef.current?.()}
-        style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          padding: '10px 20px',
-          width: '120px',
-          height: '44px',
-          backgroundColor: '#f44336',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: 'bold',
-          zIndex: 10000,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d32f2f'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f44336'}
-      >
-        💥 Detonate
-      </button>
+            <div className="fixed top-5 right-5 flex gap-4 z-50">
+              <Button
+                onClick={() => resetCameraRef.current?.()}
+                variant="secondary"
+              >
+                Reset View
+              </Button>
+              <Button
+                onClick={toggleFullscreen}
+                variant="default"
+              >
+                {isFullscreen ? '⤡ Exit Fullscreen' : '⤢ Fullscreen'}
+              </Button>
+              <Button
+                onClick={() => triggerExplosionRef.current?.()}
+                variant="destructive"
+              >
+                💥 Detonate
+              </Button>
+            </div>
     </div>
   );
 }

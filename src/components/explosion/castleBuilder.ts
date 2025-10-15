@@ -17,7 +17,7 @@ export function buildCastle(scene: THREE.Scene): CastleElements {
   const brickDepth = 0.4;
 
   // Ground
-  const groundGeom = new THREE.PlaneGeometry(60, 60);
+  const groundGeom = new THREE.PlaneGeometry(120, 120);
   const groundMat = new THREE.MeshStandardMaterial({ 
     color: new THREE.Color().setHSL(0.25, 0.6, 0.4 + Math.random() * 0.1)
   });
@@ -450,10 +450,7 @@ export function buildCastle(scene: THREE.Scene): CastleElements {
   scene.add(wire);
 
   const wire2Points = [
-    new THREE.Vector3(rightWallCenter + tntSize/2, 0.1, 2),
-    new THREE.Vector3(rightWallCenter + tntSize/2 + 1, 0.1, 2),
-    new THREE.Vector3(6, 0.1, 8),
-    new THREE.Vector3(8, 0.1, 8),
+    new THREE.Vector3(rightWallCenter - tntSize/2, tntSize/2, 2),
     new THREE.Vector3(8, detonatorSize * 0.3, 8)
   ];
   
