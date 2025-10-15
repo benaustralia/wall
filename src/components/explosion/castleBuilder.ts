@@ -42,11 +42,6 @@ export function buildCastle(scene: THREE.Scene): CastleElements {
   const doorwayRows = 6; // 6 rows high (rows 3-8 from top)
   const doorwayStartRow = baseBrickRows - 8; // 8 rows from the top
   
-  const windowHeight = 2.0;
-  const windowWidth = 1.2;
-  const windowRows = Math.ceil(windowHeight / brickHeight);
-  const level2StartRow = Math.floor(baseBrickRows / 3);
-  const level2EndRow = level2StartRow + windowRows;
   
   // Build octagonal tower
   for (let row = 0; row < baseBrickRows; row++) {
