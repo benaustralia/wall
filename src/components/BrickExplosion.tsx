@@ -288,6 +288,14 @@ export default function BrickExplosion() {
     tntBlock.receiveShadow = true;
     scene.add(tntBlock);
 
+    // Second TNT block on the right wall
+    const tntBlock2 = tntBlock.clone();
+    const rightWallCenter = wallStartX + (wallLength / 2);
+    tntBlock2.position.set(rightWallCenter, tntSize / 2, 2); // Position on right wall
+    tntBlock2.castShadow = true;
+    tntBlock2.receiveShadow = true;
+    scene.add(tntBlock2);
+
     // Detonator box near viewer
     const detonatorSize = 0.8;
     const detonatorGeometry = new THREE.BoxGeometry(detonatorSize, detonatorSize * 0.6, detonatorSize * 0.8);
@@ -330,6 +338,20 @@ export default function BrickExplosion() {
     const wireMaterial = new THREE.LineBasicMaterial({ color: 0x666666, linewidth: 2 });
     const wire = new THREE.Line(wireGeometry, wireMaterial);
     scene.add(wire);
+
+    // Second wire connecting detonator to right wall TNT
+    const wire2Points = [
+      new THREE.Vector3(rightWallCenter + tntSize/2, 0.1, 2), // Start at left side of second TNT
+      new THREE.Vector3(rightWallCenter + tntSize/2 + 1, 0.1, 2), // Move away from TNT
+      new THREE.Vector3(6, 0.1, 8), // Go around front to outside
+      new THREE.Vector3(8, 0.1, 8), // Along ground to outside detonator area
+      new THREE.Vector3(8, detonatorSize * 0.3, 8) // End at outside detonator position
+    ];
+    
+    const wire2Geometry = new THREE.BufferGeometry().setFromPoints(wire2Points);
+    const wire2Material = new THREE.LineBasicMaterial({ color: 0x666666, linewidth: 2 });
+    const wire2 = new THREE.Line(wire2Geometry, wire2Material);
+    scene.add(wire2);
     
     // Create the three characters based on visual references
     createCharacters({ scene });
