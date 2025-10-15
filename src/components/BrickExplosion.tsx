@@ -111,8 +111,12 @@ export default function BrickExplosion() {
     };
 
     const resetCamera = () => {
-      cameraAngleRef.current = { azimuth: 0, elevation: Math.PI / 6 };
-      updateCamera();
+      if (!cameraRef.current) return;
+      
+      // Reset to initial camera position (same as first paint)
+      const camera = cameraRef.current;
+      camera.position.set(0, 10, 20);
+      camera.lookAt(0, 6, 0);
       
       // Reset the angle refs to match the initial position
       cameraAngleRef.current = { azimuth: 0, elevation: Math.PI / 6 };
