@@ -73,7 +73,7 @@ export default function BrickExplosion() {
     const brickDepth = 0.4;
 
      // Ground - Minecraft-style grass (wider than wall)
-     const groundGeom = new THREE.PlaneGeometry(30, 30);
+     const groundGeom = new THREE.PlaneGeometry(60, 60); // Extended further to match very long wall
      const groundMat = new THREE.MeshStandardMaterial({ 
        color: new THREE.Color().setHSL(0.25, 0.6, 0.4 + Math.random() * 0.1) // Green grass color with variation
      });
@@ -226,7 +226,7 @@ export default function BrickExplosion() {
     }
 
     // Add connecting wall from tower (rectangular wall attached to tower)
-    const wallLength = 12; // Increased by 50%
+    const wallLength = 35; // Extended further to create very long city wall beyond viewport
     const wallHeight = 12;
     const wallDepth = 1;
     const wallStartX = towerRadius; // Start wall at tower edge
@@ -316,6 +316,7 @@ export default function BrickExplosion() {
     handle.position.y = 0.2;
     handle.rotation.z = Math.PI / 2;
     plunger.add(handle);
+
     
     // Position detonator outside the city walls (safe distance)
     detonatorBox.position.set(8, detonatorSize * 0.3, 8);
@@ -352,6 +353,57 @@ export default function BrickExplosion() {
     const wire2Material = new THREE.LineBasicMaterial({ color: 0x666666, linewidth: 2 });
     const wire2 = new THREE.Line(wire2Geometry, wire2Material);
     scene.add(wire2);
+
+    // Add fluffy clouds to the sky
+    const createCloud = (x: number, y: number, z: number, scale: number) => {
+      const cloud = new THREE.Group();
+      
+      // Main cloud body (largest sphere)
+      const mainBodyGeometry = new THREE.SphereGeometry(scale * 0.8, 8, 6);
+      const cloudMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.8
+      });
+      const mainBody = new THREE.Mesh(mainBodyGeometry, cloudMaterial);
+      mainBody.position.set(0, 0, 0);
+      cloud.add(mainBody);
+      
+      // Cloud puffs (smaller spheres around main body)
+      const puffGeometry = new THREE.SphereGeometry(scale * 0.5, 6, 4);
+      const puff1 = new THREE.Mesh(puffGeometry, cloudMaterial);
+      puff1.position.set(scale * 0.6, scale * 0.3, 0);
+      cloud.add(puff1);
+      
+      const puff2 = new THREE.Mesh(puffGeometry, cloudMaterial);
+      puff2.position.set(-scale * 0.5, scale * 0.2, scale * 0.4);
+      cloud.add(puff2);
+      
+      const puff3 = new THREE.Mesh(puffGeometry, cloudMaterial);
+      puff3.position.set(scale * 0.2, -scale * 0.3, scale * 0.3);
+      cloud.add(puff3);
+      
+      const puff4 = new THREE.Mesh(puffGeometry, cloudMaterial);
+      puff4.position.set(-scale * 0.3, -scale * 0.1, -scale * 0.4);
+      cloud.add(puff4);
+      
+      cloud.position.set(x, y, z);
+      return cloud;
+    };
+    
+    // Add several clouds at different heights and positions
+    const clouds = [
+      createCloud(-8, 15, -5, 2.5), // Left side cloud
+      createCloud(12, 18, -3, 3.0), // Right side cloud
+      createCloud(-2, 22, -8, 2.0), // Background cloud
+      createCloud(8, 16, 2, 2.8),   // Front right cloud
+      createCloud(-15, 20, 1, 3.2), // Far left cloud
+      createCloud(18, 14, -6, 2.3), // Far right cloud
+    ];
+    
+    clouds.forEach(cloud => {
+      scene.add(cloud);
+    });
     
     // Create the three characters based on visual references
     createCharacters({ scene });
@@ -660,22 +712,6 @@ export default function BrickExplosion() {
     const handleMouseDown = (event: MouseEvent) => {
       isMouseDownRef.current = true;
       mousePositionRef.current = { x: event.clientX, y: event.clientY };
-      
-      // Check if clicking on detonator
-      const mouse = new THREE.Vector2();
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(mouse, cameraRef.current!);
-      
-      if (detonatorRef.current) {
-        const intersects = raycaster.intersectObject(detonatorRef.current, true);
-        if (intersects.length > 0) {
-          triggerExplosion();
-          return; // Don't start camera rotation
-        }
-      }
     };
 
     const handleMouseMove = (event: MouseEvent) => {
@@ -710,10 +746,50 @@ export default function BrickExplosion() {
       cameraAngleRef.current = { azimuth: 0, elevation: Math.PI / 6 };
     };
 
-    const triggerExplosion = () => {
-      if (!startTimeRef.current) {
-        startTimeRef.current = Date.now();
+    // Create explosion sound
+    const playExplosionSound = () => {
+      try {
+        // Create a simple explosion sound using Web Audio API
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        
+        // Create noise for explosion sound
+        const bufferSize = audioContext.sampleRate * 1; // 1 second
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const output = buffer.getChannelData(0);
+        
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+        }
+        
+        const whiteNoise = audioContext.createBufferSource();
+        whiteNoise.buffer = buffer;
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, audioContext.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 1);
+        
+        const gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+        
+        whiteNoise.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        whiteNoise.start();
+        whiteNoise.stop(audioContext.currentTime + 1);
+      } catch (error) {
+        console.log('Audio not available:', error);
       }
+    };
+
+    const triggerExplosion = () => {
+      // Play explosion sound
+      playExplosionSound();
+      
+      // Always restart the animation when button is clicked
+      startTimeRef.current = Date.now();
     };
 
     resetCameraRef.current = resetCamera;
@@ -805,8 +881,10 @@ export default function BrickExplosion() {
         style={{
           position: 'absolute',
           top: '20px',
-          right: '20px',
+          right: '150px',
           padding: '10px 20px',
+          width: '120px',
+          height: '44px',
           backgroundColor: '#4a5568',
           color: 'white',
           border: 'none',
@@ -821,6 +899,30 @@ export default function BrickExplosion() {
         onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4a5568'}
       >
         Reset View
+      </button>
+      <button
+        onClick={() => triggerExplosionRef.current?.()}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          padding: '10px 20px',
+          width: '120px',
+          height: '44px',
+          backgroundColor: '#f44336',
+          color: 'white',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          zIndex: 1000,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d32f2f'}
+        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f44336'}
+      >
+        💥 Detonate
       </button>
     </div>
   );
